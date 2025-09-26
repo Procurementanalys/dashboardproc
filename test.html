@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Procurement</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    
+    body { 
+      font-family: 'Poppins', sans-serif; 
+      margin: 0; 
+      padding: 0;
+      background-color: #f8f9fa;
+      color: #333;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    /* Enhanced Typography */
+    h2, h3, h4 {
+      font-variation-settings: 'wght' 650;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #2a5298, #1e3c72);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-fill-color: transparent;
+      text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.1);
+    }
+
+    nav {
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      padding: 15px 25px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+    
+    nav li {
+      margin-right: 25px;
+    }
+    
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    nav a::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: white;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+    
+    nav a:hover::before {
+      transform: translateX(0);
+    }
+    
+    nav a:hover {
+      background-color: rgba(255,255,255,0.1);
+      transform: translateY(-2px);
+    }
+    
+    nav a.active {
+      background-color: rgba(255,255,255,0.2);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    nav a.active::before {
+      transform: translateX(0);
+    }
+    
+    .content {
+      padding: 25px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .tab {
+      display: none;
+      animation: fadeIn 0.2s ease;
+      transform-origin: top center;
+    }
+    
+    .tab.active {
+      display: block;
+      animation: slideInDown 0.2s ease-out forwards;
+    }
+    
+    /* NEW HORIZONTAL PO SUMMARY LAYOUT */
+    .po-summary-container {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      animation: fadeInUp 0.3s ease-out forwards;
+    }
+    
+    .po-summary-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 25px;
+      text-align: center;
+      border-bottom: 2px solid #e9ecef;
+      padding-bottom: 15px;
+    }
+    
+    .po-stats-horizontal {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 0;
+    }
+    
+    .po-stat-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px 15px;
+      text-align: center;
+      border-top: 4px solid #3498db;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .po-stat-card::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: transform 0.5s, opacity 0.5s;
+    }
+    
+    .po-stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      background: white;
+    }
+
+    .po-stat-card:hover::after {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    
+    .po-stat-card h4 {
+      color: #6c757d;
+      font-size: 14px;
+      font-weight: 500;
+      margin: 0 0 15px 0;
+      text-align: center;
+      line-height: 1.4;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .po-stat-card .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-align: center;
+      margin: 0;
+      word-break: break-all;
+      line-height: 1.2;
+    }
+
+    .po-stat-card:hover .value {
+      color: #3498db;
+    }
+    
+    /* Original dashboard stats for other sections */
+    .dashboard-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stats-row {
+      display: flex;
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 20px;
+      animation: fadeInUp 0.3s ease-out forwards;
+    }
+    
+    .stats-column {
+      flex: 1;
+      min-width: calc(50% - 20px);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+      border-top: 4px solid #3498db;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      animation: cardAppear 0.2s ease-out forwards;
+    }
+    
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: transform 0.5s, opacity 0.5s;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    .stat-card:hover::after {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    
+    .stat-card h4 {
+      color: #6c757d;
+      font-size: 16px;
+      font-weight: 500;
+      margin: 0 0 15px 0;
+      text-align: center;
+      transform: translateY(0);
+      transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover h4 {
+      transform: translateY(-3px);
+    }
+    
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2c3e50;
+      text-align: center;
+      margin: auto 0;
+      position: relative;
+      transform: translateY(0);
+      transition: transform 0.3s ease, color 0.3s ease;
+    }
+
+    .stat-card:hover .value {
+      transform: translateY(-3px);
+      color: #3498db;
+    }
+    
+    .section-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 30px 0 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e9ecef;
+      position: relative;
+      animation: fadeInUp 0.2s ease-out forwards;
+    }
+
+    .section-title::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 80px;
+      height: 2px;
+      background: linear-gradient(90deg, #3498db, #2a5298);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s ease;
+    }
+
+    .section-title:hover::after {
+      transform: scaleX(1);
+    }
+    
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin: 20px 0 30px 0;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      animation: fadeInUp 0.2s ease-out forwards;
+      position: relative;
+    }
+    
+    th, td { 
+      padding: 15px; 
+      text-align: left; 
+      border-bottom: 1px solid #e9ecef;
+      position: relative;
+    }
+    
+    th { 
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      transition: background 0.3s ease;
+      z-index: 1;
+    }
+
+    tbody tr {
+      transition: all 0.3s ease;
+      opacity: 0;
+      animation: fadeInRows 0.3s ease-out forwards;
+    }
+    
+    tbody tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+    
+    tbody tr:hover {
+      background-color: #f1f3f5;
+      transform: translateX(5px);
+      box-shadow: -5px 0 0 rgba(52, 152, 219, 0.5);
+    }
+
+    tbody tr td {
+      transition: all 0.3s ease;
+    }
+
+    tbody tr:hover td {
+      color: #2980b9;
+    }
+    
+    h2 {
+      font-size: 28px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 0 0 30px 0;
+      animation: fadeInDown 0.6s ease-out forwards;
+      position: relative;
+    }
+
+    h2::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 50px;
+      height: 3px;
+      background: linear-gradient(90deg, #3498db, #2a5298);
+      transform: scaleX(1);
+      transform-origin: left;
+      transition: transform 0.4s ease;
+    }
+
+    h2:hover::after {
+      transform: scaleX(2);
+    }
+    
+    h3 { 
+      font-size: 20px;
+      font-weight: 500;
+      color: #2c3e50;
+      margin: 30px 0 15px 0;
+      animation: fadeInLeft 0.6s ease-out forwards;
+    }
+    
+    #supplierSearch {
+      padding: 12px 15px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+    
+    #supplierSearch:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    button {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-right: 10px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 5px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      border-radius: 100%;
+      transform: scale(1) translate(-50%, -50%);
+      transform-origin: 0 0;
+    }
+
+    button:active::after {
+      animation: ripple 0.6s ease-out;
+    }
+    
+    button:hover {
+      background: #2980b9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+    
+    .search-container {
+      position: relative;
+      margin-bottom: 20px;
+      max-width: 400px;
+      animation: fadeInLeft 0.6s ease-out forwards;
+    }
+    
+    .search-container i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #adb5bd;
+      transition: color 0.3s ease;
+    }
+
+    .search-container:hover i {
+      color: #3498db;
+    }
+    
+    .search-input {
+      padding: 12px 15px 12px 40px;
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .search-input:focus + i {
+      color: #3498db;
+    }
+    
+    /* Responsive Design for Horizontal Layout */
+    @media (max-width: 1024px) {
+      .po-stats-horizontal {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+      }
+      
+      .po-stat-card .value {
+        font-size: 20px;
+      }
+      
+      .po-stat-card h4 {
+        font-size: 13px;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .po-stats-horizontal {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+      
+      .po-stat-card {
+        min-height: 100px;
+        padding: 15px 10px;
+      }
+      
+      .po-stat-card .value {
+        font-size: 18px;
+      }
+      
+      .po-stat-card h4 {
+        font-size: 12px;
+        min-height: 30px;
+      }
+      
+      .stats-column {
+        min-width: 100%;
+      }
+      
+      nav {
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      nav a {
+        font-size: 14px;
+        padding: 6px 10px;
+      }
+
+      .stat-card .value {
+        font-size: 22px;
+      }
+
+      h2 {
+        font-size: 24px;
+      }
+
+      h3 {
+        font-size: 18px;
+      }
+
+      .section-title {
+        font-size: 20px;
+      }
+
+      table {
+        font-size: 14px;
+      }
+
+      th, td {
+        padding: 10px;
+      }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeInLeft {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes slideInDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes cardAppear {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes fadeInRows {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes ripple {
+      0% {
+        transform: scale(0) translate(-50%, -50%);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(20) translate(-50%, -50%);
+        opacity: 0;
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .dashboard-loading i {
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+    
+    ul:not(nav ul) {
+      padding-left: 0;
+      list-style-type: none;
+      animation: fadeInUp 0.6s ease-out forwards;
+    }
+    
+    ul:not(nav ul) li {
+      padding: 10px 0;
+      border-bottom: 1px solid #f1f3f5;
+      transition: all 0.3s ease;
+      position: relative;
+      padding-left: 10px;
+    }
+
+    ul:not(nav ul) li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 3px;
+      background: transparent;
+      transition: background 0.3s ease;
+    }
+
+    ul:not(nav ul) li:hover::before {
+      background: #3498db;
+    }
+
+    ul:not(nav ul) li:hover {
+      padding-left: 15px;
+      background-color: #f8f9fa;
+    }
+    
+    ul:not(nav ul) li:last-child {
+      border-bottom: none;
+    }
+
+    /* Apply animation delay to table rows for staggered effect */
+    tbody tr:nth-child(1) { animation-delay: 0.1s; }
+    tbody tr:nth-child(2) { animation-delay: 0.2s; }
+    tbody tr:nth-child(3) { animation-delay: 0.3s; }
+    tbody tr:nth-child(4) { animation-delay: 0.4s; }
+    tbody tr:nth-child(5) { animation-delay: 0.5s; }
+    tbody tr:nth-child(6) { animation-delay: 0.6s; }
+    tbody tr:nth-child(7) { animation-delay: 0.7s; }
+    tbody tr:nth-child(8) { animation-delay: 0.8s; }
+    tbody tr:nth-child(9) { animation-delay: 0.9s; }
+    tbody tr:nth-child(10) { animation-delay: 1.0s; }
+    tbody tr:nth-child(n+11) { animation-delay: 1.1s; }
+
+    /* Add loading animation */
+    .loading-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 40px 0;
+    }
+    .loading-spinner i {
+      color: #3498db;
+      font-size: 2rem;
+      animation: rotate 1s infinite linear;
+    }
+    .loading-spinner p {
+      margin-top: 15px;
+      color: #6c757d;
+    }
+    @keyframes rotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Instant tab switch */
+    .instant-switch {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: translateY(0) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVIGATION BAR -->
+  <nav>
+    <ul>
+      <li><a onclick="showTab('po')" id="po-tab" class="active"><i class="fas fa-file-invoice mr-2"></i> Purchase Order</a></li>
+      <li><a onclick="showTab('master')" id="master-tab"><i class="fas fa-database mr-2"></i> Master Data</a></li>
+      <li><a onclick="showTab('soh')" id="soh-tab"><i class="fas fa-boxes mr-2"></i> SOH</a></li>
+      <li><a onclick="showTab('report')" id="report-tab"><i class="fas fa-chart-bar mr-2"></i> Report</a></li>
+      <li><a onclick="showTab('export')" id="export-tab"><i class="fas fa-file-export mr-2"></i> Export</a></li>
+    </ul>
+  </nav>
+
+  <!-- CONTENT SECTIONS -->
+  <div class="content">
+
+    <!-- PURCHASE ORDER TAB -->
+    <div id="po" class="tab active">
+      <h2>PO Summary Report</h2>
+      <div id="summary">
+        <div class="loading-spinner">
+          <i class="fas fa-circle-notch fa-spin"></i>
+          <p>Memuat data Purchase Order...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MASTER DATA -->
+    <div id="master" class="tab">
+      <h2>Master Data Summary</h2>
+      <div id="master-summary">
+        <div class="loading-spinner">
+          <i class="fas fa-circle-notch fa-spin"></i>
+          <p>Memuat data Master...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOH -->
+    <div id="soh" class="tab">
+      <h2>Stock On Hand (SOH)</h2>
+      <div id="soh-summary">
+        <div class="loading-spinner">
+          <i class="fas fa-circle-notch fa-spin"></i>
+          <p>Memuat data Stock On Hand...</p>
+        </div>
+      </div>
+      <div id="soh-table-container"></div>
+    </div>
+
+    <!-- REPORT -->
+    <div id="report" class="tab">
+      <h2>Report</h2>
+      <div class="stat-card">
+        <p class="text-center text-gray-500">(Belum tersedia)</p>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div id="export" class="tab">
+      <h2>Export</h2>
+      <div class="flex space-x-4">
+        <button onclick="exportTable('summary')" class="flex items-center" id="exportPoBtn" disabled>
+          <i class="fas fa-file-download mr-2"></i> Export Summary
+        </button>
+        <button onclick="exportTable('master-summary')" class="flex items-center" id="exportMasterBtn" disabled>
+          <i class="fas fa-file-download mr-2"></i> Export Master Data
+        </button>
+      </div>
+      <p class="mt-4 text-gray-500">Pilih dan muat tab data terlebih dahulu sebelum mengekspor</p>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxqrokFmcd7DD-sk7wS5L6j5ItIOpBKcsRH6Ty3m8H_tuZ48_zW0Qzy-jVxDcxu349xtA/exec';
+    
+    // Cache object to store fetched data
+    const dataCache = {
+      po: null,
+      master: null,
+      soh: null
+    };
+    
+    // Tab loading states
+    const loadingState = {
+      po: false,
+      master: false,
+      soh: false
+    };
+    
+    // Tab references
+    const tabs = {
+      po: document.getElementById('po'),
+      master: document.getElementById('master'),
+      soh: document.getElementById('soh'),
+      report: document.getElementById('report'),
+      export: document.getElementById('export')
+    };
+    
+    // Initialize current active tab
+    let currentTab = 'po';
+
+    function formatCurrency(val) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR'
+      }).format(val);
+    }
+
+    function showLoading(containerId, message) {
+      document.getElementById(containerId).innerHTML = `
+        <div class="loading-spinner">
+          <i class="fas fa-circle-notch fa-spin"></i>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+
+    function showError(containerId, message) {
+      document.getElementById(containerId).innerHTML = `
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          <strong class="font-bold">Gagal memuat data!</strong>
+          <span class="block sm:inline">${message}</span>
+        </div>`;
+    }
+
+    // Tab switching function
+    function showTab(tabId) {
+      // If clicking the same tab, do nothing
+      if (currentTab === tabId) return;
+      
+      // Update current tab reference
+      currentTab = tabId;
+      
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.classList.add('instant-switch');
+        setTimeout(() => tab.classList.remove('instant-switch'), 10);
+      });
+      document.querySelectorAll('nav a').forEach(link => link.classList.remove('active'));
+      
+      // Add active class to selected tab
+      tabs[tabId].classList.add('active');
+      document.getElementById(tabId + '-tab').classList.add('active');
+      
+      // Load data for the selected tab if not already loaded
+      switch (tabId) {
+        case 'po':
+          if (!dataCache.po && !loadingState.po) {
+            loadPOData();
+          }
+          break;
+        case 'master':
+          if (!dataCache.master && !loadingState.master) {
+            loadMasterData();
+          }
+          break;
+        case 'soh':
+          if (!dataCache.soh && !loadingState.soh) {
+            loadSOHData();
+          }
+          break;
+        case 'export':
+          updateExportButtons();
+          break;
+      }
+    }
+
+    // Update export buttons based on data availability
+    function updateExportButtons() {
+      document.getElementById('exportPoBtn').disabled = !dataCache.po;
+      document.getElementById('exportMasterBtn').disabled = !dataCache.master;
+    }
+
+    // Load PO data
+    function loadPOData() {
+      if (dataCache.po) {
+        renderPOData(dataCache.po);
+        return;
+      }
+      
+      loadingState.po = true;
+      showLoading('summary', 'Memuat data Purchase Order...');
+      
+      fetch(API_URL + '?type=po')
+        .then(res => res.json())
+        .then(data => {
+          dataCache.po = data;
+          loadingState.po = false;
+          renderPOData(data);
+          updateExportButtons();
+        })
+        .catch(err => {
+          loadingState.po = false;
+          showError('summary', 'Terjadi kesalahan saat mengambil data Purchase Order.');
+          console.error(err);
+        });
+    }
+
+    // Load Master Data
+    function loadMasterData() {
+      if (dataCache.master) {
+        renderMasterData(dataCache.master);
+        return;
+      }
+      
+      loadingState.master = true;
+      showLoading('master-summary', 'Memuat data Master...');
+      
+      fetch(API_URL + '?type=master')
+        .then(res => res.json())
+        .then(data => {
+          dataCache.master = data;
+          loadingState.master = false;
+          renderMasterData(data);
+          updateExportButtons();
+        })
+        .catch(err => {
+          loadingState.master = false;
+          showError('master-summary', 'Terjadi kesalahan saat mengambil data Master.');
+          console.error(err);
+        });
+    }
+
+    // Load SOH Data
+    function loadSOHData() {
+      if (dataCache.soh) {
+        renderSOHData(dataCache.soh);
+        return;
+      }
+      
+      loadingState.soh = true;
+      showLoading('soh-summary', 'Memuat data Stock On Hand...');
+      document.getElementById('soh-table-container').innerHTML = '';
+      
+      fetch(API_URL + '?type=soh')
+        .then(res => res.json())
+        .then(data => {
+          dataCache.soh = data;
+          loadingState.soh = false;
+          renderSOHData(data);
+        })
+        .catch(err => {
+          loadingState.soh = false;
+          showError('soh-summary', 'Terjadi kesalahan saat mengambil data Stock On Hand.');
+          console.error(err);
+        });
+    }
+
+    // Render PO Data with NEW HORIZONTAL LAYOUT
+    function renderPOData(data) {
+      let poHtml = `
+        <div class="po-summary-container">
+          <div class="po-stats-horizontal">
+            <div class="po-stat-card">
+              <h4>Total PO Created</h4>
+              <div class="value">${data.totalPO}</div>
+            </div>
+            <div class="po-stat-card">
+              <h4>Total Value PO</h4>
+              <div class="value">${formatCurrency(data.totalValuePO)}</div>
+            </div>
+            <div class="po-stat-card">
+              <h4>Total Value Received</h4>
+              <div class="value">${formatCurrency(data.totalValueReceived)}</div>
+            </div>
+            <div class="po-stat-card">
+              <h4>AVG SLA (%)</h4>
+              <div class="value">${data.avgSLA}%</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="section-title">Status PO Detail</h3>
+        <table>
+          <thead>
+            <tr><th>Status</th><th>Jumlah</th></tr>
+          </thead>
+          <tbody>`;
+      for (let status in data.statusDetail) {
+        poHtml += `<tr><td>${status}</td><td>${data.statusDetail[status]}</td></tr>`;
+      }
+      poHtml += `</tbody></table>
+
+        <h3 class="section-title">SLA per Supplier</h3>
+        <div class="search-container">
+          <i class="fas fa-search"></i>
+          <input type="text" id="supplierSearch" class="search-input" onkeyup="filterSupplier()" placeholder="Cari Supplier...">
+        </div>
+        <table id="slaTable">
+          <thead>
+            <tr><th>Supplier</th><th>Total PO</th><th>Total Received</th><th>SLA (%)</th></tr>
+          </thead>
+          <tbody>`;
+      for (let supplier in data.slaPerSupplier) {
+        let s = data.slaPerSupplier[supplier];
+        let sla = s.totalPO > 0 ? ((s.totalReceived / s.totalPO) * 100).toFixed(2) : '0.00';
+        poHtml += `<tr>
+          <td>${supplier}</td>
+          <td>${formatCurrency(s.totalPO)}</td>
+          <td>${formatCurrency(s.totalReceived)}</td>
+          <td>${sla}%</td>
+        </tr>`;
+      }
+      poHtml += `</tbody></table>`;
+      document.getElementById('summary').innerHTML = poHtml;
+      
+      // Apply staggered animation to table rows
+      applyTableRowAnimations();
+    }
+
+    // Render Master Data
+    function renderMasterData(data) {
+      let md = data.masterData;
+      let mdHtml = `
+        <div class="stats-row">
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Total Unique Item</h4>
+              <div class="value">${md.totalItem}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <!-- Placeholder for potential future stat -->
+            <div style="height: 0"></div>
+          </div>
+        </div>
+
+        <h3 class="section-title">Item per Status</h3>
+        <table>
+          <thead>
+            <tr><th>Status</th><th>Jumlah</th></tr>
+          </thead>
+          <tbody>`;
+      for (let stat in md.statusCount) {
+        mdHtml += `<tr><td>${stat}</td><td>${md.statusCount[stat]}</td></tr>`;
+      }
+      mdHtml += `</tbody></table>
+
+        <h3 class="section-title">Item per Division</h3>
+        <table>
+          <thead>
+            <tr><th>Division</th><th>Jumlah</th></tr>
+          </thead>
+          <tbody>`;
+      for (let div in md.divisionCount) {
+        mdHtml += `<tr><td>${div}</td><td>${md.divisionCount[div]}</td></tr>`;
+      }
+      mdHtml += `</tbody></table>`;
+      document.getElementById('master-summary').innerHTML = mdHtml;
+      
+      // Apply staggered animation to table rows
+      applyTableRowAnimations();
+    }
+
+    // Render SOH Data
+    function renderSOHData(data) {
+      let soh = data.dataSOH;
+      let sohHtml = `
+        <div class="stats-row">
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Total Closing Stock</h4>
+              <div class="value">${formatCurrency(soh.totalClosingStock)}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Jumlah Produk dengan Closing Stock 0</h4>
+              <div class="value">${soh.zeroClosingStockCount}</div>
+            </div>
+          </div>
+        </div>`;
+
+      let tableHtml = `
+        <h3 class="section-title">Produk dengan Closing Stock = 0</h3>
+        <table>
+          <thead>
+            <tr><th>Kode Produk</th><th>Deskripsi</th><th>Closing Stock</th></tr>
+          </thead>
+          <tbody>`;
+      if (soh.itemsZero && soh.itemsZero.length > 0) {
+        soh.itemsZero.forEach(item => {
+          tableHtml += `<tr>
+            <td>${item.procode}</td>
+            <td>${item.prodesc}</td>
+            <td>${formatCurrency(item.closingStock)}</td>
+          </tr>`;
+        });
+      } else {
+        tableHtml += `<tr><td colspan="3" class="text-center">Tidak ada data</td></tr>`;
+      }
+      tableHtml += `</tbody></table>`;
+
+      document.getElementById('soh-summary').innerHTML = sohHtml;
+      document.getElementById('soh-table-container').innerHTML = tableHtml;
+      
+      // Apply staggered animation to table rows
+      applyTableRowAnimations();
+    }
+
+    // Filter supplier function
+    function filterSupplier() {
+      const input = document.getElementById("supplierSearch").value.toLowerCase();
+      const rows = document.querySelectorAll("#slaTable tbody tr");
+
+      rows.forEach(row => {
+        const supplierName = row.cells[0].textContent.toLowerCase();
+        row.style.display = supplierName.includes(input) ? "" : "none";
+      });
+    }
+
+    // Export table function
+    function exportTable(id) {
+      const el = document.getElementById(id);
+      const blob = new Blob([el.innerHTML], {type: 'text/html'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = id + '.html';
+      a.click();
+    }
+
+    // Apply table row animations
+    function applyTableRowAnimations() {
+      document.querySelectorAll('table tbody tr').forEach((row, index) => {
+        row.style.animationDelay = `${0.1 * index}s`;
+      });
+    }
+
+    // Start by loading PO data since it's the default tab
+    window.onload = function() {
+      loadPOData();
+    };
+  </script>
+</body>
+</html>

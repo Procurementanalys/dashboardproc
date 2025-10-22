@@ -810,366 +810,353 @@
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxqrokFmcd7DD-sk7wS5L6j5ItIOpBKcsRH6Ty3m8H_tuZ48_zW0Qzy-jVxDcxu349xtA/exec';
-    
-    // Cache object to store fetched data
-    const dataCache = {
-      po: null,
-      master: null,
-      soh: null
-    };
-    
-    // Tab loading states
-    const loadingState = {
-      po: false,
-      master: false,
-      soh: false
-    };
-    
-    // Tab references
-    const tabs = {
-      po: document.getElementById('po'),
-      master: document.getElementById('master'),
-      soh: document.getElementById('soh'),
-      report: document.getElementById('report'),
-      export: document.getElementById('export')
-    };
-    
-    // Initialize current active tab
-    let currentTab = 'po';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyTUH1faKb_JDcS1gFk2dNuQ0QsEcqMTE1jLDsgGlxyKbJyGOLnGj2JuGgEqtF4th5_VA/exec';
+  // Cache and state
+  const dataCache = { po: null, master: null, soh: null };
+  const loadingState = { po: false, master: false, soh: false };
+  const tabs = {
+    po: document.getElementById('po'),
+    master: document.getElementById('master'),
+    soh: document.getElementById('soh'),
+    report: document.getElementById('report'),
+    export: document.getElementById('export')
+  };
+  let currentTab = 'po';
 
-    function formatCurrency(val) {
-      return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR'
-      }).format(val);
+  function formatCurrency(val) {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
+  }
+
+  function showLoading(containerId, message) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="loading-spinner">
+        <i class="fas fa-circle-notch fa-spin"></i>
+        <p>${message}</p>
+      </div>`;
+  }
+
+  function showError(containerId, message) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+        <strong class="font-bold">Gagal memuat data!</strong>
+        <span class="block sm:inline">${message}</span>
+      </div>`;
+  }
+
+  function showTab(tabId) {
+    if (currentTab === tabId) return;
+    currentTab = tabId;
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.remove('active');
+      tab.classList.add('instant-switch');
+      setTimeout(() => tab.classList.remove('instant-switch'), 10);
+    });
+    document.querySelectorAll('nav a').forEach(link => link.classList.remove('active'));
+    tabs[tabId].classList.add('active');
+    document.getElementById(tabId + '-tab').classList.add('active');
+
+    switch (tabId) {
+      case 'po': if (!dataCache.po && !loadingState.po) loadPOData(); break;
+      case 'master': if (!dataCache.master && !loadingState.master) loadMasterData(); break;
+      case 'soh': if (!dataCache.soh && !loadingState.soh) loadSOHData(); break;
+      case 'export': updateExportButtons(); break;
     }
+  }
 
-    function showLoading(containerId, message) {
-      document.getElementById(containerId).innerHTML = `
-        <div class="loading-spinner">
-          <i class="fas fa-circle-notch fa-spin"></i>
-          <p>${message}</p>
-        </div>
-      `;
-    }
+  function updateExportButtons() {
+    document.getElementById('exportPoBtn').disabled = !dataCache.po;
+    document.getElementById('exportMasterBtn').disabled = !dataCache.master;
+  }
 
-    function showError(containerId, message) {
-      document.getElementById(containerId).innerHTML = `
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-          <strong class="font-bold">Gagal memuat data!</strong>
-          <span class="block sm:inline">${message}</span>
-        </div>`;
-    }
-
-    // Tab switching function
-    function showTab(tabId) {
-      // If clicking the same tab, do nothing
-      if (currentTab === tabId) return;
-      
-      // Update current tab reference
-      currentTab = tabId;
-      
-      // Remove active class from all tabs
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-        tab.classList.add('instant-switch');
-        setTimeout(() => tab.classList.remove('instant-switch'), 10);
+  function loadPOData() {
+    if (dataCache.po) { renderPOData(dataCache.po); return; }
+    loadingState.po = true;
+    showLoading('summary', 'Memuat data Purchase Order...');
+    fetch(API_URL + '?type=po')
+      .then(res => res.json())
+      .then(data => {
+        dataCache.po = data;
+        loadingState.po = false;
+        renderPOData(data);
+        updateExportButtons();
+      })
+      .catch(err => {
+        loadingState.po = false;
+        showError('summary', 'Terjadi kesalahan saat mengambil data Purchase Order.');
+        console.error(err);
       });
-      document.querySelectorAll('nav a').forEach(link => link.classList.remove('active'));
-      
-      // Add active class to selected tab
-      tabs[tabId].classList.add('active');
-      document.getElementById(tabId + '-tab').classList.add('active');
-      
-      // Load data for the selected tab if not already loaded
-      switch (tabId) {
-        case 'po':
-          if (!dataCache.po && !loadingState.po) {
-            loadPOData();
-          }
-          break;
-        case 'master':
-          if (!dataCache.master && !loadingState.master) {
-            loadMasterData();
-          }
-          break;
-        case 'soh':
-          if (!dataCache.soh && !loadingState.soh) {
-            loadSOHData();
-          }
-          break;
-        case 'export':
-          updateExportButtons();
-          break;
-      }
-    }
+  }
 
-    // Update export buttons based on data availability
-    function updateExportButtons() {
-      document.getElementById('exportPoBtn').disabled = !dataCache.po;
-      document.getElementById('exportMasterBtn').disabled = !dataCache.master;
-    }
+  function loadMasterData() {
+    if (dataCache.master) { renderMasterData(dataCache.master); return; }
+    loadingState.master = true;
+    showLoading('master-summary', 'Memuat data Master...');
+    fetch(API_URL + '?type=master')
+      .then(res => res.json())
+      .then(data => {
+        dataCache.master = data;
+        loadingState.master = false;
+        renderMasterData(data);
+        updateExportButtons();
+      })
+      .catch(err => {
+        loadingState.master = false;
+        showError('master-summary', 'Terjadi kesalahan saat mengambil data Master.');
+        console.error(err);
+      });
+  }
 
-    // Load PO data
-    function loadPOData() {
-      if (dataCache.po) {
-        renderPOData(dataCache.po);
-        return;
-      }
-      
-      loadingState.po = true;
-      showLoading('summary', 'Memuat data Purchase Order...');
-      
-      fetch(API_URL + '?type=po')
-        .then(res => res.json())
-        .then(data => {
-          dataCache.po = data;
-          loadingState.po = false;
-          renderPOData(data);
-          updateExportButtons();
-        })
-        .catch(err => {
-          loadingState.po = false;
-          showError('summary', 'Terjadi kesalahan saat mengambil data Purchase Order.');
-          console.error(err);
-        });
-    }
+  function loadSOHData() {
+    if (dataCache.soh) { renderSOHData(dataCache.soh); return; }
+    loadingState.soh = true;
+    showLoading('soh-summary', 'Memuat data Stock On Hand...');
+    document.getElementById('soh-table-container').innerHTML = '';
+    fetch(API_URL + '?type=soh')
+      .then(res => res.json())
+      .then(data => {
+        dataCache.soh = data;
+        loadingState.soh = false;
+        renderSOHData(data);
+      })
+      .catch(err => {
+        loadingState.soh = false;
+        showError('soh-summary', 'Terjadi kesalahan saat mengambil data Stock On Hand.');
+        console.error(err);
+      });
+  }
 
-    // Load Master Data
-    function loadMasterData() {
-      if (dataCache.master) {
-        renderMasterData(dataCache.master);
-        return;
-      }
-      
-      loadingState.master = true;
-      showLoading('master-summary', 'Memuat data Master...');
-      
-      fetch(API_URL + '?type=master')
-        .then(res => res.json())
-        .then(data => {
-          dataCache.master = data;
-          loadingState.master = false;
-          renderMasterData(data);
-          updateExportButtons();
-        })
-        .catch(err => {
-          loadingState.master = false;
-          showError('master-summary', 'Terjadi kesalahan saat mengambil data Master.');
-          console.error(err);
-        });
-    }
+  // Backup original PO data for reset
+  let originalPOData = null;
 
-    // Load SOH Data
-    function loadSOHData() {
-      if (dataCache.soh) {
-        renderSOHData(dataCache.soh);
-        return;
-      }
-      
-      loadingState.soh = true;
-      showLoading('soh-summary', 'Memuat data Stock On Hand...');
-      document.getElementById('soh-table-container').innerHTML = '';
-      
-      fetch(API_URL + '?type=soh')
-        .then(res => res.json())
-        .then(data => {
-          dataCache.soh = data;
-          loadingState.soh = false;
-          renderSOHData(data);
-        })
-        .catch(err => {
-          loadingState.soh = false;
-          showError('soh-summary', 'Terjadi kesalahan saat mengambil data Stock On Hand.');
-          console.error(err);
-        });
+  function parsePossibleDate(d) {
+    if (!d) return null;
+    // If already a Date object representation string (ISO), Date constructor should parse it.
+    const dt = new Date(d);
+    if (!isNaN(dt)) return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    // Try DD/MM/YYYY or DD-MM-YYYY
+    const m1 = String(d).match(/(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})/);
+    if (m1) {
+      const day = parseInt(m1[1],10), month = parseInt(m1[2],10)-1, year = parseInt(m1[3],10);
+      return new Date(year, month, day);
     }
+    return null;
+  }
 
-    // Render PO Data with NEW HORIZONTAL LAYOUT
-    function renderPOData(data) {
-      let poHtml = `
-        <div class="po-summary-container">
-          <div class="po-stats-horizontal">
-            <div class="po-stat-card">
-              <h4>Total PO Created</h4>
-              <div class="value">${data.totalPO}</div>
-            </div>
-            <div class="po-stat-card">
-              <h4>Total Value PO</h4>
-              <div class="value">${formatCurrency(data.totalValuePO)}</div>
-            </div>
-            <div class="po-stat-card">
-              <h4>Total Value Received</h4>
-              <div class="value">${formatCurrency(data.totalValueReceived)}</div>
-            </div>
-            <div class="po-stat-card">
-              <h4>AVG SLA (%)</h4>
-              <div class="value">${data.avgSLA}%</div>
-            </div>
+  function renderPOData(data) {
+    if (!originalPOData) originalPOData = JSON.parse(JSON.stringify(data));
+
+    let poHtml = `
+      <div class="flex items-center space-x-4 mb-6">
+        <div>
+          <label for="startDate" class="text-gray-700 font-medium mr-2">Dari:</label>
+          <input type="date" id="startDate" class="border border-gray-300 rounded p-2">
+        </div>
+        <div>
+          <label for="endDate" class="text-gray-700 font-medium mr-2">Sampai:</label>
+          <input type="date" id="endDate" class="border border-gray-300 rounded p-2">
+        </div>
+        <button onclick="applyDateFilter()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          <i class="fas fa-filter mr-2"></i> Filter
+        </button>
+        <button onclick="resetDateFilter()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">
+          <i class="fas fa-undo mr-2"></i> Reset
+        </button>
+      </div>
+
+      <div class="po-summary-container">
+        <div class="po-stats-horizontal">
+          <div class="po-stat-card">
+            <h4>Total PO Created</h4>
+            <div class="value">${data.totalPO}</div>
+          </div>
+          <div class="po-stat-card">
+            <h4>Total Value PO</h4>
+            <div class="value">${formatCurrency(data.totalValuePO)}</div>
+          </div>
+          <div class="po-stat-card">
+            <h4>Total Value Received</h4>
+            <div class="value">${formatCurrency(data.totalValueReceived)}</div>
+          </div>
+          <div class="po-stat-card">
+            <h4>AVG SLA (%)</h4>
+            <div class="value">${data.avgSLA}%</div>
           </div>
         </div>
+      </div>
 
-        <h3 class="section-title">Status PO Detail</h3>
-        <table>
-          <thead>
-            <tr><th>Status</th><th>Jumlah</th></tr>
-          </thead>
-          <tbody>`;
-      for (let status in data.statusDetail) {
-        poHtml += `<tr><td>${status}</td><td>${data.statusDetail[status]}</td></tr>`;
-      }
-      poHtml += `</tbody></table>
+      <h3 class="section-title">Status PO Detail</h3>
+      <table>
+        <thead><tr><th>Status</th><th>Jumlah</th></tr></thead>
+        <tbody>`;
+    for (let status in data.statusDetail) {
+      poHtml += `<tr><td>${status}</td><td>${data.statusDetail[status]}</td></tr>`;
+    }
+    poHtml += `</tbody></table>
 
-        <h3 class="section-title">SLA per Supplier</h3>
-        <div class="search-container">
-          <i class="fas fa-search"></i>
-          <input type="text" id="supplierSearch" class="search-input" onkeyup="filterSupplier()" placeholder="Cari Supplier...">
-        </div>
-        <table id="slaTable">
-          <thead>
-            <tr><th>Supplier</th><th>Total PO</th><th>Total Received</th><th>SLA (%)</th></tr>
-          </thead>
-          <tbody>`;
-      for (let supplier in data.slaPerSupplier) {
-        let s = data.slaPerSupplier[supplier];
-        let sla = s.totalPO > 0 ? ((s.totalReceived / s.totalPO) * 100).toFixed(2) : '0.00';
-        poHtml += `<tr>
-          <td>${supplier}</td>
-          <td>${formatCurrency(s.totalPO)}</td>
-          <td>${formatCurrency(s.totalReceived)}</td>
-          <td>${sla}%</td>
-        </tr>`;
-      }
-      poHtml += `</tbody></table>`;
-      document.getElementById('summary').innerHTML = poHtml;
-      
-      // Apply staggered animation to table rows
-      applyTableRowAnimations();
+      <h3 class="section-title">SLA per Supplier</h3>
+      <div class="search-container">
+        <i class="fas fa-search"></i>
+        <input type="text" id="supplierSearch" class="search-input" onkeyup="filterSupplier()" placeholder="Cari Supplier...">
+      </div>
+      <table id="slaTable">
+        <thead><tr><th>Supplier</th><th>Total PO</th><th>Total Received</th><th>SLA (%)</th></tr></thead>
+        <tbody>`;
+
+    for (let supplier in data.slaPerSupplier) {
+      const s = data.slaPerSupplier[supplier];
+      const sla = s.totalPO > 0 ? ((s.totalReceived / s.totalPO) * 100).toFixed(2) : '0.00';
+      poHtml += `<tr>
+        <td>${supplier}</td>
+        <td>${formatCurrency(s.totalPO)}</td>
+        <td>${formatCurrency(s.totalReceived)}</td>
+        <td>${sla}%</td>
+      </tr>`;
     }
 
-    // Render Master Data
-    function renderMasterData(data) {
-      let md = data.masterData;
-      let mdHtml = `
-        <div class="stats-row">
-          <div class="stats-column">
-            <div class="stat-card">
-              <h4>Total Unique Item</h4>
-              <div class="value">${md.totalItem}</div>
-            </div>
-          </div>
-          <div class="stats-column">
-            <!-- Placeholder for potential future stat -->
-            <div style="height: 0"></div>
-          </div>
-        </div>
+    poHtml += `</tbody></table>`;
+    document.getElementById('summary').innerHTML = poHtml;
+    applyTableRowAnimations();
+  }
 
-        <h3 class="section-title">Item per Status</h3>
-        <table>
-          <thead>
-            <tr><th>Status</th><th>Jumlah</th></tr>
-          </thead>
-          <tbody>`;
-      for (let stat in md.statusCount) {
-        mdHtml += `<tr><td>${stat}</td><td>${md.statusCount[stat]}</td></tr>`;
-      }
-      mdHtml += `</tbody></table>
+  function applyDateFilter() {
+    const startVal = document.getElementById('startDate').value;
+    const endVal = document.getElementById('endDate').value;
+    if (!startVal || !endVal) return alert('Pilih kedua tanggal!');
 
-        <h3 class="section-title">Item per Division</h3>
-        <table>
-          <thead>
-            <tr><th>Division</th><th>Jumlah</th></tr>
-          </thead>
-          <tbody>`;
-      for (let div in md.divisionCount) {
-        mdHtml += `<tr><td>${div}</td><td>${md.divisionCount[div]}</td></tr>`;
-      }
-      mdHtml += `</tbody></table>`;
-      document.getElementById('master-summary').innerHTML = mdHtml;
-      
-      // Apply staggered animation to table rows
-      applyTableRowAnimations();
-    }
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    start.setHours(0,0,0,0);
+    end.setHours(23,59,59,999);
 
-    // Render SOH Data
-    function renderSOHData(data) {
-      let soh = data.dataSOH;
-      let sohHtml = `
-        <div class="stats-row">
-          <div class="stats-column">
-            <div class="stat-card">
-              <h4>Total Closing Stock</h4>
-              <div class="value">${formatCurrency(soh.totalClosingStock)}</div>
-            </div>
-          </div>
-          <div class="stats-column">
-            <div class="stat-card">
-              <h4>Jumlah Produk dengan Closing Stock 0</h4>
-              <div class="value">${soh.zeroClosingStockCount}</div>
-            </div>
-          </div>
-        </div>`;
+    const filtered = JSON.parse(JSON.stringify(originalPOData));
+    filtered.totalPO = 0;
+    filtered.totalValuePO = 0;
+    filtered.totalValueReceived = 0;
+    filtered.statusDetail = {};
 
-      let tableHtml = `
-        <h3 class="section-title">Produk dengan Closing Stock = 0</h3>
-        <table>
-          <thead>
-            <tr><th>Kode Produk</th><th>Deskripsi</th><th>Closing Stock</th></tr>
-          </thead>
-          <tbody>`;
-      if (soh.itemsZero && soh.itemsZero.length > 0) {
-        soh.itemsZero.forEach(item => {
-          tableHtml += `<tr>
-            <td>${item.procode}</td>
-            <td>${item.prodesc}</td>
-            <td>${formatCurrency(item.closingStock)}</td>
-          </tr>`;
-        });
-      } else {
-        tableHtml += `<tr><td colspan="3" class="text-center">Tidak ada data</td></tr>`;
-      }
-      tableHtml += `</tbody></table>`;
+    for (let supplier in filtered.slaPerSupplier) {
+      const s = filtered.slaPerSupplier[supplier];
+      const entries = Array.isArray(s.entries) ? s.entries : [];
+      const keep = entries.filter(ent => {
+        const d = parsePossibleDate(ent.date);
+        if (!d) return false;
+        d.setHours(0,0,0,0);
+        return d >= start && d <= end;
+      });
 
-      document.getElementById('soh-summary').innerHTML = sohHtml;
-      document.getElementById('soh-table-container').innerHTML = tableHtml;
-      
-      // Apply staggered animation to table rows
-      applyTableRowAnimations();
-    }
+      let totPO = 0, totRec = 0;
+      keep.forEach(k => { totPO += Number(k.poValue)||0; totRec += Number(k.receivedValue)||0; });
 
-    // Filter supplier function
-    function filterSupplier() {
-      const input = document.getElementById("supplierSearch").value.toLowerCase();
-      const rows = document.querySelectorAll("#slaTable tbody tr");
+      filtered.slaPerSupplier[supplier] = {
+        entries: keep,
+        totalPO: totPO,
+        totalReceived: totRec
+      };
 
-      rows.forEach(row => {
-        const supplierName = row.cells[0].textContent.toLowerCase();
-        row.style.display = supplierName.includes(input) ? "" : "none";
+      filtered.totalPO += keep.length;
+      filtered.totalValuePO += totPO;
+      filtered.totalValueReceived += totRec;
+
+      keep.forEach(k => {
+        const st = k.status || 'Undefined';
+        filtered.statusDetail[st] = (filtered.statusDetail[st]||0) + 1;
       });
     }
 
-    // Export table function
-    function exportTable(id) {
-      const el = document.getElementById(id);
-      const blob = new Blob([el.innerHTML], {type: 'text/html'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = id + '.html';
-      a.click();
-    }
+    filtered.avgSLA = filtered.totalValuePO > 0 ? ((filtered.totalValueReceived/filtered.totalValuePO)*100).toFixed(2) : '0.00';
 
-    // Apply table row animations
-    function applyTableRowAnimations() {
-      document.querySelectorAll('table tbody tr').forEach((row, index) => {
-        row.style.animationDelay = `${0.1 * index}s`;
-      });
-    }
+    renderPOData(filtered);
+  }
 
-    // Start by loading PO data since it's the default tab
-    window.onload = function() {
-      loadPOData();
-    };
-  </script>
+  function resetDateFilter() {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    if (originalPOData) renderPOData(originalPOData);
+  }
+
+  function renderMasterData(data) {
+    let md = data.masterData;
+    let mdHtml = `
+      <div class="stats-row">
+        <div class="stats-column">
+          <div class="stat-card">
+            <h4>Total Unique Item</h4>
+            <div class="value">${md.totalItem}</div>
+          </div>
+        </div>
+        <div class="stats-column"><div style="height: 0"></div></div>
+      </div>
+      <h3 class="section-title">Item per Status</h3>
+      <table><thead><tr><th>Status</th><th>Jumlah</th></tr></thead><tbody>`;
+    for (let stat in md.statusCount)
+      mdHtml += `<tr><td>${stat}</td><td>${md.statusCount[stat]}</td></tr>`;
+    mdHtml += `</tbody></table>
+      <h3 class="section-title">Item per Division</h3>
+      <table><thead><tr><th>Division</th><th>Jumlah</th></tr></thead><tbody>`;
+    for (let div in md.divisionCount)
+      mdHtml += `<tr><td>${div}</td><td>${md.divisionCount[div]}</td></tr>`;
+    mdHtml += `</tbody></table>`;
+    document.getElementById('master-summary').innerHTML = mdHtml;
+    applyTableRowAnimations();
+  }
+
+  function renderSOHData(data) {
+    let soh = data.dataSOH;
+    let sohHtml = `
+      <div class="stats-row">
+        <div class="stats-column">
+          <div class="stat-card">
+            <h4>Total Closing Stock</h4>
+            <div class="value">${formatCurrency(soh.totalClosingStock)}</div>
+          </div>
+        </div>
+        <div class="stats-column">
+          <div class="stat-card">
+            <h4>Jumlah Produk dengan Closing Stock 0</h4>
+            <div class="value">${soh.zeroClosingStockCount}</div>
+          </div>
+        </div>
+      </div>`;
+    let tableHtml = `
+      <h3 class="section-title">Produk dengan Closing Stock = 0</h3>
+      <table><thead><tr><th>Kode Produk</th><th>Deskripsi</th><th>Closing Stock</th></tr></thead><tbody>`;
+    if (soh.itemsZero && soh.itemsZero.length > 0)
+      soh.itemsZero.forEach(item => tableHtml += `<tr><td>${item.procode}</td><td>${item.prodesc}</td><td>${formatCurrency(item.closingStock)}</td></tr>`);
+    else
+      tableHtml += `<tr><td colspan="3" class="text-center">Tidak ada data</td></tr>`;
+    tableHtml += `</tbody></table>`;
+    document.getElementById('soh-summary').innerHTML = sohHtml;
+    document.getElementById('soh-table-container').innerHTML = tableHtml;
+    applyTableRowAnimations();
+  }
+
+  function filterSupplier() {
+    const input = document.getElementById("supplierSearch").value.toLowerCase();
+    const rows = document.querySelectorAll("#slaTable tbody tr");
+    rows.forEach(row => {
+      const supplierName = row.cells[0].textContent.toLowerCase();
+      row.style.display = supplierName.includes(input) ? "" : "none";
+    });
+  }
+
+  function exportTable(id) {
+    const el = document.getElementById(id);
+    const blob = new Blob([el.innerHTML], {type: 'text/html'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = id + '.html';
+    a.click();
+  }
+
+  function applyTableRowAnimations() {
+    document.querySelectorAll('table tbody tr').forEach((row, i) => {
+      row.style.animationDelay = `${0.1 * i}s`;
+    });
+  }
+
+  window.onload = function() { loadPOData(); };
+</script>
+
 </body>
 </html>

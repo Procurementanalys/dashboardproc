@@ -776,6 +776,23 @@
     <!-- SOH -->
     <div id="soh" class="tab">
       <h2>Stock On Hand (SOH)</h2>
+
+      <!-- ADDED: Location filter (Store / Warehouse / All) - small, non-intrusive -->
+      <div class="flex items-center space-x-3 mb-4">
+        <label for="sohLocationSelect" class="text-gray-700 font-medium">Lokasi:</label>
+        <select id="sohLocationSelect" class="border border-gray-300 rounded p-2">
+          <option value="ALL">ALL</option>
+          <option value="STORE">STORE</option>
+          <option value="WAREHOUSE">WAREHOUSE</option>
+        </select>
+        <button onclick="loadSOHData()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          <i class="fas fa-filter mr-2"></i> Tampilkan
+        </button>
+        <button onclick="resetSOHFilter()" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">
+          <i class="fas fa-undo mr-2"></i> Reset
+        </button>
+      </div>
+
       <div id="soh-summary">
         <div class="loading-spinner">
           <i class="fas fa-circle-notch fa-spin"></i>
@@ -810,7 +827,9 @@
   </div>
 
   <script>
-  const API_URL = 'https://script.google.com/macros/s/AKfycbxPwHs1q7TZloZ6kpj43Vixn_l7vOZBXKY7BP2Xhy2o6XvLD1RgGdN9WFMmKRVR34PCqg/exec';
+  // --- CONFIG: ganti API_URL jika perlu ---
+  const API_URL = 'https://script.google.com/macros/s/AKfycbzuF76U18Eixg9Q4iOCf6OCZo20MRhN8P0RtqSvj2cONS-kWtLDQHqFhvS8xKV15qywrA/exec';
+
   // Cache and state
   const dataCache = { po: null, master: null, soh: null };
   const loadingState = { po: false, master: false, soh: false };
@@ -824,7 +843,10 @@
   let currentTab = 'po';
 
   function formatCurrency(val) {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
+    // if not number, return raw
+    if (val === null || val === undefined) return '-';
+    if (isNaN(Number(val))) return String(val);
+    return new Intl.NumberFormat('id-ID', { style: 'decimal', maximumFractionDigits: 2 }).format(Number(val));
   }
 
   function showLoading(containerId, message) {
@@ -907,17 +929,148 @@
       });
   }
 
+  /*************************************************************************
+   * SOH: improved load + render functions
+   *
+   * Behavior:
+   * - If user selects ALL: call ?type=soh&location=all (or ?type=soh&location=all)
+   * - If user selects STORE: call ?type=soh&location=store
+   * - If user selects WAREHOUSE: call ?type=soh&location=warehouse
+   *
+   * Accepts server responses in either of these shapes:
+   * 1) { location: "store"/"warehouse"/"all", totalClosingStock, zeroClosingStockCount, items, zeroItems, storeItems, warehouseItems, ... }
+   * 2) { data: [ { Procode, Prodesc, ClosingStock, source } ] }  (converted multi-row)
+   *
+   *************************************************************************/
   function loadSOHData() {
-    if (dataCache.soh) { renderSOHData(dataCache.soh); return; }
+    const locSelect = document.getElementById('sohLocationSelect');
+    const loc = locSelect ? locSelect.value : 'ALL';
+
+    // if cached and same location -> render cached
+    if (dataCache.soh && dataCache.soh._location === loc) { renderSOHData(dataCache.soh); return; }
+
     loadingState.soh = true;
     showLoading('soh-summary', 'Memuat data Stock On Hand...');
     document.getElementById('soh-table-container').innerHTML = '';
-    fetch(API_URL + '?type=soh')
+
+    // Build URL for your Apps Script doGet (your existing backend supports type=soh&location=...)
+    // Use lowercase location parameter expected by your Apps Script: store / warehouse / all
+    const locParam = (loc || 'ALL').toLowerCase();
+    const url = API_URL + '?type=soh&location=' + encodeURIComponent(locParam);
+
+    fetch(url)
       .then(res => res.json())
-      .then(data => {
-        dataCache.soh = data;
+      .then(raw => {
         loadingState.soh = false;
-        renderSOHData(data);
+
+        // 1) If server returns object with storeItems/warehouseItems (your doGet earlier) -> use directly
+        if (raw && (raw.storeItems || raw.warehouseItems || raw.location)) {
+          // Normalize into wrapper for client caching
+          const wrapper = {
+            _location: loc,
+            _raw: raw,
+            dataSOH: {}
+          };
+
+          if (locParam === 'store') {
+            wrapper.dataSOH.totalClosingStock = raw.totalClosingStock || raw.totalStore || 0;
+            wrapper.dataSOH.zeroClosingStockCount = raw.zeroClosingStockCount || raw.zeroStore || 0;
+            wrapper.dataSOH.itemsZero = raw.zeroItems || [];
+            wrapper.dataSOH.storeItems = raw.items || raw.storeItems || [];
+            wrapper.dataSOH.warehouseItems = raw.warehouseItems || [];
+          } else if (locParam === 'warehouse') {
+            wrapper.dataSOH.totalClosingStock = raw.totalClosingStock || raw.totalWarehouse || 0;
+            wrapper.dataSOH.zeroClosingStockCount = raw.zeroClosingStockCount || raw.zeroWarehouse || 0;
+            wrapper.dataSOH.itemsZero = raw.zeroItems || [];
+            wrapper.dataSOH.storeItems = raw.storeItems || [];
+            wrapper.dataSOH.warehouseItems = raw.items || raw.warehouseItems || [];
+          } else {
+            // all
+            wrapper.dataSOH.totalStore = raw.totalStore || raw.totalClosingStock || 0;
+            wrapper.dataSOH.totalWarehouse = raw.totalWarehouse || 0;
+            wrapper.dataSOH.totalAll = raw.totalAll || (wrapper.dataSOH.totalStore + wrapper.dataSOH.totalWarehouse);
+            wrapper.dataSOH.zeroStore = raw.zeroStore || 0;
+            wrapper.dataSOH.zeroWarehouse = raw.zeroWarehouse || 0;
+            wrapper.dataSOH.zeroAll = raw.zeroAll || (wrapper.dataSOH.zeroStore + wrapper.dataSOH.zeroWarehouse);
+            wrapper.dataSOH.storeItems = raw.storeItems || [];
+            wrapper.dataSOH.warehouseItems = raw.warehouseItems || [];
+            // also provide combined rows for table
+            wrapper.rawRows = (wrapper.dataSOH.storeItems || []).map(i => ({ Procode: i.procode || i.Procode, Prodesc: i.prodesc || i.Prodesc, ClosingStock: i.closingStock || i.ClosingStock, source: 'STORE' }))
+              .concat((wrapper.dataSOH.warehouseItems || []).map(i => ({ Procode: i.procode || i.Procode, Prodesc: i.prodesc || i.Prodesc, ClosingStock: i.closingStock || i.ClosingStock, source: 'WAREHOUSE' })));
+          }
+
+          dataCache.soh = wrapper;
+          renderSOHData(wrapper);
+          return;
+        }
+
+        // 2) If server returns array in raw.data (custom endpoint) -> convert
+        if (raw && Array.isArray(raw.data)) {
+          const rows = raw.data.map(r => ({
+            Procode: r.Procode || r.procode || r.itemCode || '',
+            Prodesc: r.Prodesc || r.prodesc || r.description || '',
+            ClosingStock: Number(r.ClosingStock || r.closingStock || r.qty || 0),
+            source: (r.source || r.location || '').toUpperCase() || ''
+          }));
+
+          // compute totals
+          let totalStore = 0, totalWarehouse = 0;
+          const storeItems = [], warehouseItems = [], zeroStoreItems = [], zeroWarehouseItems = [];
+          rows.forEach(r => {
+            if (r.source === 'STORE') {
+              storeItems.push(r);
+              totalStore += r.ClosingStock || 0;
+              if ((r.ClosingStock || 0) === 0) zeroStoreItems.push(r);
+            } else if (r.source === 'WAREHOUSE') {
+              warehouseItems.push(r);
+              totalWarehouse += r.ClosingStock || 0;
+              if ((r.ClosingStock || 0) === 0) zeroWarehouseItems.push(r);
+            } else {
+              // unknown source -> assume ALL (put into combined)
+            }
+          });
+
+          const wrapper = {
+            _location: loc,
+            dataSOH: {
+              totalStore: totalStore,
+              totalWarehouse: totalWarehouse,
+              totalAll: totalStore + totalWarehouse,
+              zeroStore: zeroStoreItems.length,
+              zeroWarehouse: zeroWarehouseItems.length,
+              zeroAll: zeroStoreItems.length + zeroWarehouseItems.length,
+              storeItems: storeItems,
+              warehouseItems: warehouseItems,
+              itemsZero: zeroStoreItems.concat(zeroWarehouseItems)
+            },
+            rawRows: rows
+          };
+
+          dataCache.soh = wrapper;
+          renderSOHData(wrapper);
+          return;
+        }
+
+        // 3) Fallback: if server returned simple shape { totalClosingStock, zeroClosingStockCount, itemsZero }
+        if (raw && (raw.totalClosingStock !== undefined || raw.items !== undefined || raw.itemsZero !== undefined)) {
+          const wrapper = {
+            _location: loc,
+            dataSOH: {
+              totalClosingStock: raw.totalClosingStock || 0,
+              zeroClosingStockCount: raw.zeroClosingStockCount || (raw.itemsZero ? raw.itemsZero.length : 0),
+              itemsZero: raw.itemsZero || raw.zeroItems || [],
+              storeItems: raw.items || []
+            },
+            rawRows: raw.items || []
+          };
+          dataCache.soh = wrapper;
+          renderSOHData(wrapper);
+          return;
+        }
+
+        // Unknown response
+        showError('soh-summary', 'Respons server SOH tidak dikenali.');
+        console.warn('Unrecognized SOH response', raw);
       })
       .catch(err => {
         loadingState.soh = false;
@@ -926,16 +1079,159 @@
       });
   }
 
+  function resetSOHFilter() {
+    const sel = document.getElementById('sohLocationSelect');
+    if (sel) sel.value = 'ALL';
+    dataCache.soh = null;
+    loadSOHData();
+  }
+
+  // Render SOH wrapper created in loadSOHData
+  function renderSOHData(wrapper) {
+    // wrapper expected: { _location, dataSOH: {...}, rawRows?, _raw? }
+    const loc = wrapper && wrapper._location ? wrapper._location : 'ALL';
+    const d = wrapper.dataSOH || {};
+
+    // Build summary HTML depending on available fields
+    let summaryHtml = '';
+    // If we have store/warehouse totals (all case)
+    if (d.totalStore !== undefined || d.totalWarehouse !== undefined || d.totalAll !== undefined) {
+      summaryHtml += `
+        <div class="stats-row mb-4">
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Total Closing Stock (Store)</h4>
+              <div class="value">${formatCurrency(d.totalStore || 0)}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Total Closing Stock (Warehouse)</h4>
+              <div class="value">${formatCurrency(d.totalWarehouse || 0)}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Grand Total (Store + Warehouse)</h4>
+              <div class="value">${formatCurrency(d.totalAll || ((d.totalStore||0)+(d.totalWarehouse||0)))}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-row mb-4">
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Zero Stock (Store)</h4>
+              <div class="value">${d.zeroStore || 0}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Zero Stock (Warehouse)</h4>
+              <div class="value">${d.zeroWarehouse || 0}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Zero Stock Total</h4>
+              <div class="value">${d.zeroAll || ((d.zeroStore||0)+(d.zeroWarehouse||0))}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // fallback single total (store or warehouse only)
+      summaryHtml += `
+        <div class="stats-row mb-4">
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Total Closing Stock</h4>
+              <div class="value">${formatCurrency(d.totalClosingStock || 0)}</div>
+            </div>
+          </div>
+          <div class="stats-column">
+            <div class="stat-card">
+              <h4>Jumlah Produk dengan Closing Stock 0</h4>
+              <div class="value">${d.zeroClosingStockCount || 0}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    document.getElementById('soh-summary').innerHTML = summaryHtml;
+
+    // Build table - combined view depending on selection
+    let rows = [];
+    if (loc === 'STORE') {
+      // show store items
+      rows = (d.storeItems || []).map(i => ({
+        Procode: i.procode || i.Procode || '',
+        Prodesc: i.prodesc || i.Prodesc || '',
+        ClosingStock: i.closingStock || i.ClosingStock || 0,
+        source: 'STORE'
+      }));
+    } else if (loc === 'WAREHOUSE') {
+      rows = (d.warehouseItems || []).map(i => ({
+        Procode: i.procode || i.Procode || '',
+        Prodesc: i.prodesc || i.Prodesc || '',
+        ClosingStock: i.closingStock || i.ClosingStock || 0,
+        source: 'WAREHOUSE'
+      }));
+    } else {
+      // ALL: combine
+      const s = (d.storeItems || []).map(i => ({ Procode: i.procode || i.Procode || '', Prodesc: i.prodesc || i.Prodesc || '', ClosingStock: i.closingStock || i.ClosingStock || 0, source: 'STORE' }));
+      const w = (d.warehouseItems || []).map(i => ({ Procode: i.procode || i.Procode || '', Prodesc: i.prodesc || i.Prodesc || '', ClosingStock: i.closingStock || i.ClosingStock || 0, source: 'WAREHOUSE' }));
+      // If rawRows provided (already combined) prefer that
+      if (wrapper.rawRows && Array.isArray(wrapper.rawRows) && wrapper.rawRows.length) {
+        rows = wrapper.rawRows.map(r => ({ Procode: r.Procode || r.procode || '', Prodesc: r.Prodesc || r.prodesc || '', ClosingStock: r.ClosingStock || r.closingStock || 0, source: r.source || '' }));
+      } else {
+        rows = s.concat(w);
+      }
+    }
+
+    // render table HTML - HANYA TAMPILKAN ITEM DENGAN CLOSING STOCK = 0
+    // Filter hanya item dengan ClosingStock = 0
+    const zeroStockRows = rows.filter(r => (r.ClosingStock === 0 || r.ClosingStock === '0'));
+    
+    let tableHtml = `
+      <h3 class="section-title">Daftar Produk dengan Zero Stock (Closing Stock = 0)</h3>
+      <div class="overflow-x-auto">
+        <table>
+          <thead><tr><th>Kode Produk</th><th>Deskripsi</th><th>Closing Stock</th><th>Source</th></tr></thead>
+          <tbody>
+    `;
+    if (zeroStockRows.length === 0) {
+      tableHtml += `<tr><td colspan="4" class="text-center">Tidak ada produk dengan stock 0</td></tr>`;
+    } else {
+      zeroStockRows.forEach(r => {
+        tableHtml += `<tr>
+          <td>${r.Procode}</td>
+          <td>${r.Prodesc}</td>
+          <td class="text-right">${formatCurrency(r.ClosingStock)}</td>
+          <td>${r.source || ''}</td>
+        </tr>`;
+      });
+    }
+    tableHtml += `</tbody></table></div>`;
+
+    // Tidak perlu tabel zero items terpisah karena sudah ditampilkan di tabel utama
+    // Tabel utama sudah di-filter untuk hanya menampilkan item dengan ClosingStock = 0
+
+    document.getElementById('soh-table-container').innerHTML = tableHtml;
+
+    applyTableRowAnimations();
+  }
+
+  // Keep original PO fallback utilities (unchanged behavior)
   // Backup original PO data for reset
   let originalPOData = null;
 
   function parsePossibleDate(d) {
     if (!d) return null;
-    // If already a Date object representation string (ISO), Date constructor should parse it.
     const dt = new Date(d);
     if (!isNaN(dt)) return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-    // Try DD/MM/YYYY or DD-MM-YYYY
-    const m1 = String(d).match(/(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})/);
+    const m1 = String(d).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (m1) {
       const day = parseInt(m1[1],10), month = parseInt(m1[2],10)-1, year = parseInt(m1[3],10);
       return new Date(year, month, day);
@@ -1101,36 +1397,6 @@
     applyTableRowAnimations();
   }
 
-  function renderSOHData(data) {
-    let soh = data.dataSOH;
-    let sohHtml = `
-      <div class="stats-row">
-        <div class="stats-column">
-          <div class="stat-card">
-            <h4>Total Closing Stock</h4>
-            <div class="value">${formatCurrency(soh.totalClosingStock)}</div>
-          </div>
-        </div>
-        <div class="stats-column">
-          <div class="stat-card">
-            <h4>Jumlah Produk dengan Closing Stock 0</h4>
-            <div class="value">${soh.zeroClosingStockCount}</div>
-          </div>
-        </div>
-      </div>`;
-    let tableHtml = `
-      <h3 class="section-title">Produk dengan Closing Stock = 0</h3>
-      <table><thead><tr><th>Kode Produk</th><th>Deskripsi</th><th>Closing Stock</th></tr></thead><tbody>`;
-    if (soh.itemsZero && soh.itemsZero.length > 0)
-      soh.itemsZero.forEach(item => tableHtml += `<tr><td>${item.procode}</td><td>${item.prodesc}</td><td>${formatCurrency(item.closingStock)}</td></tr>`);
-    else
-      tableHtml += `<tr><td colspan="3" class="text-center">Tidak ada data</td></tr>`;
-    tableHtml += `</tbody></table>`;
-    document.getElementById('soh-summary').innerHTML = sohHtml;
-    document.getElementById('soh-table-container').innerHTML = tableHtml;
-    applyTableRowAnimations();
-  }
-
   function filterSupplier() {
     const input = document.getElementById("supplierSearch").value.toLowerCase();
     const rows = document.querySelectorAll("#slaTable tbody tr");
@@ -1155,9 +1421,9 @@
     });
   }
 
+  // auto-load PO tab on open
   window.onload = function() { loadPOData(); };
-</script>
+  </script>
 
 </body>
 </html>
-
